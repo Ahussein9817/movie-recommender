@@ -13,10 +13,9 @@ def load_data():
     movies_df["genres"] = movies_df["genres"].fillna("")
     tfidf = TfidfVectorizer(stop_words="english")
     tfidf_matrix = tfidf.fit_transform(movies_df["genres"])
-    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-    return movies_df, cosine_sim
+    return movies_df, tfidf_matrix
 
-movies_df, cosine_sim = load_data()
+movies_df, tfidf_matrix = load_data()
 
 # --- Recommendation Logic ---
 def get_recommendations(title, n=5):
@@ -24,9 +23,12 @@ def get_recommendations(title, n=5):
     if matches.empty:
         return None
     idx = matches.index[0]
-    sim_scores = sorted(enumerate(cosine_sim[idx]), key=lambda x: x[1], reverse=True)[1:n+1]
-    indices = [i[0] for i in sim_scores]
-    return movies_df[["title", "genres"]].iloc[indices].reset_index(drop=True)
+    # Compute similarity only for this one movie to save memory
+    movie_vec = tfidf_matrix[idx]
+    sim_scores = cosine_similarity(movie_vec, tfidf_matrix).flatten()
+    sim_scores[idx] = -1  # exclude the movie itself
+    top_indices = sim_scores.argsort()[::-1][:n]
+    return movies_df[["title", "genres"]].iloc[top_indices].reset_index(drop=True)
 
 # --- UI ---
 st.title("Movie Recommender")
