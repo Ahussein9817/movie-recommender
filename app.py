@@ -19,17 +19,20 @@ movies_df, tfidf_matrix = load_data()
 
 # --- Recommendation Logic ---
 def get_recommendations(title, n=5):
-    matches = movies_df[movies_df["title"].str.lower() == title.lower()]
+    title_lower = title.lower()
+    # Try exact match first
+    matches = movies_df[movies_df["title"].str.lower() == title_lower]
+    # If no match, try partial match
+    if matches.empty:
+        matches = movies_df[movies_df["title"].str.lower().str.contains(title_lower, regex=False)]
     if matches.empty:
         return None
     idx = matches.index[0]
-    # Compute similarity only for this one movie to save memory
     movie_vec = tfidf_matrix[idx]
     sim_scores = cosine_similarity(movie_vec, tfidf_matrix).flatten()
-    sim_scores[idx] = -1  # exclude the movie itself
+    sim_scores[idx] = -1
     top_indices = sim_scores.argsort()[::-1][:n]
     return movies_df[["title", "genres"]].iloc[top_indices].reset_index(drop=True)
-
 # --- UI ---
 st.title("Movie Recommender")
 st.write("Enter a movie you like and get similar recommendations based on genre.")
